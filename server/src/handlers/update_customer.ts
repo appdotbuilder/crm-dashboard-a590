@@ -1,14 +1,47 @@
+import { db } from '../db';
+import { customersTable } from '../db/schema';
 import { type UpdateCustomerInput, type Customer } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const updateCustomer = async (input: UpdateCustomerInput): Promise<Customer> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is updating an existing customer in the database.
-    return Promise.resolve({
-        id: input.id,
-        name: input.name || 'Existing Name',
-        email: input.email || 'existing@email.com',
-        phone: input.phone || 'Existing Phone',
-        company: input.company || 'Existing Company',
-        created_at: new Date() // Placeholder date
-    } as Customer);
+  try {
+    // First check if customer exists
+    const existingCustomer = await db.select()
+      .from(customersTable)
+      .where(eq(customersTable.id, input.id))
+      .limit(1)
+      .execute();
+
+    if (existingCustomer.length === 0) {
+      throw new Error(`Customer with id ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: Partial<typeof customersTable.$inferInsert> = {};
+    
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+    if (input.email !== undefined) {
+      updateData.email = input.email;
+    }
+    if (input.phone !== undefined) {
+      updateData.phone = input.phone;
+    }
+    if (input.company !== undefined) {
+      updateData.company = input.company;
+    }
+
+    // Update customer record
+    const result = await db.update(customersTable)
+      .set(updateData)
+      .where(eq(customersTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Customer update failed:', error);
+    throw error;
+  }
 };
